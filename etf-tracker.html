@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETF做T记录器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #0f1923;
+  color: #e0e0e0;
+  min-height: 100vh;
+  padding: 20px;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+h1 {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 24px;
+  color: #4fc3f7;
+  letter-spacing: 2px;
+}
+.card {
+  background: #1a2634;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid #2a3a4a;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.card-title {
+  font-size: 18px;
+  color: #4fc3f7;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #2a3a4a;
+  padding-bottom: 10px;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+summary-item {
+  background: #0f1923;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  border: 1px solid #2a3a4a;
+}
+.summary-item .label { font-size: 13px; color: #8a9baa; margin-bottom: 8px; }
+.summary-item .value { font-size: 24px; font-weight: bold; }
+.summary-item .value.green { color: #4caf50; }
+.summary-item .value.red { color: #f44336; }
+.summary-item .value.blue { color: #4fc3f7; }
+.input-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.input-group { flex: 1; min-width: 140px; }
+.input-group label {
+  display: block;
+  font-size: 13px;
+  color: #8a9baa;
+  margin-bottom: 6px;
+}
+.input-group input, .input-group select {
+  width: 100%;
+  background: #0f1923;
+  border: 1px solid #2a3a4a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #e0e0e0;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-group input:focus, .input-group select:focus { border-color: #4fc3f7; }
+.btn {
+  padding: 10px 28px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-buy { background: #2e7d32; color: #fff; }
+.btn-buy:hover { background: #388e3c; }
+.btn-sell { background: #c62828; color: #fff; }
+.btn-sell:hover { background: #d32f2f; }
+.btn-delete {
+  background: #37474f;
+  color: #b0bec5;
+  font-size: 13px;
+  padding: 5px 12px;
+}
+.btn-delete:hover { background: #455a64; color: #fff; }
+.btn-export {
+  background: #1565c0;
+  color: #fff;
+  font-size: 14px;
+  padding: 8px 20px;
+}
+.btn-export:hover { background: #1976d2; }
+.btn-clear {
+  background: #5d4037;
+  color: #fff;
+  font-size: 14px;
+  padding: 8px 20px;
+}
+.btn-clear:hover { background: #6d4c41; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+th, td {
+  padding: 10px 12px;
+  text-align: center;
+  border-bottom: 1px solid #2a3a4a;
+  font-size: 14px;
+}
+th { color: #8a9baa; font-weight: 600; background: #0f1923; }
+tr:hover { background: #1e2d3d; }
+.type-buy { color: #4caf50; font-weight: bold; }
+.type-sell { color: #f44336; font-weight: bold; }
+.profit-green { color: #4caf50; font-weight: bold; }
+.profit-red { color: #f44336; font-weight: bold; }
+.actions-row {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.empty-tip {
+  text-align: center;
+  color: #5a6a7a;
+  padding: 40px;
+  font-size: 15px;
+}
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2e7d32;
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast.error { background: #c62828; }
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.toggle-btn {
+  padding: 8px 24px;
+  border: 1px solid #2a3a4a;
+  background: #0f1923;
+  color: #8a9baa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.toggle-btn.active {
+  background: #1a2634;
+  color: #4fc3f7;
+  border-color: #4fc3f7;
+}
+#inputPanel { display: none; }
+#inputPanel.show { display: block; }
+.quick-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.quick-stat {
+  font-size: 13px;
+  color: #8a9baa;
+}
+.quick-stat span { color: #4fc3f7; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📈 ETF做T记录器</h1>
+
+  <!-- 汇总卡片 -->
+  <div class="card">
+    <div class="card-title">📊 持仓汇总</div>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="label">现存股数</div>
+        <div class="value blue" id="totalShares">0</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">持仓成本</div>
+        <div class="value blue" id="avgCost">¥0.00</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">持仓市值</div>
+        <div class="value blue" id="marketValue">¥0.00</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">浮动盈亏</div>
+        <div class="value" id="floatingProfit">¥0.00</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">已实现盈亏</div>
+        <div class="value" id="realizedProfit">¥0.00</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">总盈亏</div>
+        <div class="value" id="totalProfit">¥0.00</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="input-group" style="max-width:200px;">
+        <label>当前市价（用于计算浮动盈亏）</label>
+        <input type="number" id="currentPrice" step="0.001" placeholder="输入当前价格" oninput="updateSummary()">
+      </div>
+    </div>
+  </div>
+
+  <!-- 录入面板 -->
+  <div class="card">
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="toggleBuy" onclick="switchType('buy')">买入</button>
+      <button class="toggle-btn" id="toggleSell" onclick="switchType('sell')">卖出</button>
+    </div>
+    <div id="inputPanel" class="show">
+      <div class="input-row">
+        <div class="input-group">
+          <label>日期</label>
+          <input type="date" id="tradeDate">
+        </div>
+        <div class="input-group">
+          <label>价格（元）</label>
+          <input type="number" id="tradePrice" step="0.001" placeholder="如 1.234">
+        </div>
+        <div class="input-group">
+          <label>股数</label>
+          <input type="number" id="tradeShares" step="1" placeholder="如 1000">
+        </div>
+        <div class="input-group">
+          <label>手续费（元，可选）</label>
+          <input type="number" id="tradeFee" step="0.01" placeholder="默认0" value="0">
+        </div>
+        <button class="btn btn-buy" id="submitBtn" onclick="addTrade()">确认买入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 交易记录 -->
+  <div class="card">
+    <div class="card-title">📋 交易记录</div>
+    <div class="quick-stats">
+      <div class="quick-stat">买入次数: <span id="buyCount">0</span></div>
+      <div class="quick-stat">卖出次数: <span id="sellCount">0</span></div>
+      <div class="quick-stat">买入总额: <span id="buyTotal">¥0.00</span></div>
+      <div class="quick-stat">卖出总额: <span id="sellTotal">¥0.00</span></div>
+    </div>
+    <div id="tableWrap">
+      <div class="empty-tip" id="emptyTip">暂无交易记录，请先录入买入/卖出数据</div>
+      <table id="tradeTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>日期</th>
+            <th>类型</th>
+            <th>价格</th>
+            <th>股数</th>
+            <th>金额</th>
+            <th>手续费</th>
+            <th>本次盈亏</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tradeBody"></tbody>
+      </table>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-export" onclick="exportData()">导出数据</button>
+      <button class="btn btn-clear" onclick="clearAll()">清空全部</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var STORAGE_KEY = 'etf_tracker_records';
+var currentType = 'buy';
+var records = [];
+
+function init() {
+  loadData();
+  var today = new Date();
+  var dateStr = today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
+  document.getElementById('tradeDate').value = dateStr;
+  renderTable();
+  updateSummary();
+}
+
+function loadData() {
+  var saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      records = JSON.parse(saved);
+    } catch(e) {
+      records = [];
+    }
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+function switchType(type) {
+  currentType = type;
+  var toggleBuy = document.getElementById('toggleBuy');
+  var toggleSell = document.getElementById('toggleSell');
+  var submitBtn = document.getElementById('submitBtn');
+  if (type === 'buy') {
+    toggleBuy.classList.add('active');
+    toggleSell.classList.remove('active');
+    submitBtn.className = 'btn btn-buy';
+    submitBtn.textContent = '确认买入';
+  } else {
+    toggleSell.classList.add('active');
+    toggleBuy.classList.remove('active');
+    submitBtn.className = 'btn btn-sell';
+    submitBtn.textContent = '确认卖出';
+  }
+}
+
+function addTrade() {
+  var date = document.getElementById('tradeDate').value;
+  var price = parseFloat(document.getElementById('tradePrice').value);
+  var shares = parseInt(document.getElementById('tradeShares').value);
+  var fee = parseFloat(document.getElementById('tradeFee').value) || 0;
+
+  if (!date) { showToast('请选择日期', true); return; }
+  if (isNaN(price) || price <= 0) { showToast('请输入有效价格', true); return; }
+  if (isNaN(shares) || shares <= 0) { showToast('请输入有效股数', true); return; }
+
+  if (currentType === 'sell') {
+    var currentShares = calcCurrentShares();
+    if (shares > currentShares) {
+      showToast('卖出股数超过现存股数（' + currentShares + '股）', true);
+      return;
+    }
+  }
+
+  var record = {
+    id: Date.now(),
+    date: date,
+    type: currentType,
+    price: price,
+    shares: shares,
+    fee: fee,
+    timestamp: Date.now()
+  };
+
+  records.push(record);
+  saveData();
+  renderTable();
+  updateSummary();
+
+  document.getElementById('tradePrice').value = '';
+  document.getElementById('tradeShares').value = '';
+  document.getElementById('tradeFee').value = '0';
+
+  showToast(currentType === 'buy' ? '买入记录已添加' : '卖出记录已添加');
+}
+
+function calcCurrentShares() {
+  var total = 0;
+  for (var i = 0; i < records.length; i++) {
+    if (records[i].type === 'buy') {
+      total += records[i].shares;
+    } else {
+      total -= records[i].shares;
+    }
+  }
+  return total;
+}
+
+function calcAvgCost() {
+  var buyTotal = 0;
+  var buyShares = 0;
+  for (var i = 0; i < records.length; i++) {
+    if (records[i].type === 'buy') {
+      buyTotal += records[i].price * records[i].shares + records[i].fee;
+      buyShares += records[i].shares;
+    }
+  }
+
+  var remainingShares = calcCurrentShares();
+  if (remainingShares <= 0 || buyShares === 0) return 0;
+
+  var soldShares = buyShares - remainingShares;
+  var avgBuyPrice = buyTotal / buyShares;
+  var soldCost = soldShares * avgBuyPrice;
+  var remainingCost = buyTotal - soldCost;
+
+  var sellFees = 0;
+  for (var j = 0; j < records.length; j++) {
+    if (records[j].type === 'sell') {
+      sellFees += records[j].fee;
+    }
+  }
+
+  return remainingCost / remainingShares;
+}
+
+function calcRealizedProfit() {
+  var buyTotal = 0;
+  var buyShares = 0;
+  var sellTotal = 0;
+  var sellShares = 0;
+  var allFees = 0;
+
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    allFees += r.fee;
+    if (r.type === 'buy') {
+      buyTotal += r.price * r.shares;
+      buyShares += r.shares;
+    } else {
+      sellTotal += r.price * r.shares;
+      sellShares += r.shares;
+    }
+  }
+
+  if (buyShares === 0) return 0;
+
+  var avgBuyPrice = buyTotal / buyShares;
+  var realizedProfit = sellTotal - sellShares * avgBuyPrice - allFees;
+  return realizedProfit;
+}
+
+function calcEachRealizedProfit() {
+  var buyTotal = 0;
+  var buyShares = 0;
+  var buyFees = 0;
+  var sellFees = 0;
+
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    if (r.type === 'buy') {
+      buyTotal += r.price * r.shares + r.fee;
+      buyShares += r.shares;
+      buyFees += r.fee;
+    } else {
+      sellFees += r.fee;
+    }
+  }
+
+  var avgBuyPrice = buyShares > 0 ? buyTotal / buyShares : 0;
+
+  var results = [];
+  for (var j = 0; j < records.length; j++) {
+    var rec = records[j];
+    if (rec.type === 'buy') {
+      results.push(null);
+    } else {
+      var profit = rec.price * rec.shares - avgBuyPrice * rec.shares - rec.fee;
+      results.push(profit);
+    }
+  }
+  return results;
+}
+
+function updateSummary() {
+  var currentShares = calcCurrentShares();
+  var avgCost = calcAvgCost();
+  var realized = calcRealizedProfit();
+  var currentPrice = parseFloat(document.getElementById('currentPrice').value) || 0;
+  var marketValue = currentShares * currentPrice;
+  var floating = currentShares > 0 && currentPrice > 0
+    ? (currentPrice - avgCost) * currentShares
+    : 0;
+  var totalProfit = realized + floating;
+
+  document.getElementById('totalShares').textContent = currentShares.toLocaleString();
+  document.getElementById('avgCost').textContent = '¥' + avgCost.toFixed(4);
+  document.getElementById('marketValue').textContent = '¥' + marketValue.toFixed(2);
+
+  setProfitColor('floatingProfit', floating);
+  setProfitColor('realizedProfit', realized);
+  setProfitColor('totalProfit', totalProfit);
+
+  var buyCount = 0, sellCount = 0, buyTotal = 0, sellTotal = 0;
+  for (var i = 0; i < records.length; i++) {
+    if (records[i].type === 'buy') {
+      buyCount++;
+      buyTotal += records[i].price * records[i].shares;
+    } else {
+      sellCount++;
+      sellTotal += records[i].price * records[i].shares;
+    }
+  }
+  document.getElementById('buyCount').textContent = buyCount;
+  document.getElementById('sellCount').textContent = sellCount;
+  document.getElementById('buyTotal').textContent = '¥' + buyTotal.toFixed(2);
+  document.getElementById('sellTotal').textContent = '¥' + sellTotal.toFixed(2);
+}
+
+function setProfitColor(id, value) {
+  var el = document.getElementById(id);
+  el.textContent = '¥' + value.toFixed(2);
+  if (value > 0) {
+    el.className = 'value green';
+    el.textContent = '¥' + value.toFixed(2);
+  } else if (value < 0) {
+    el.className = 'value red';
+    el.textContent = '¥' + value.toFixed(2);
+  } else {
+    el.className = 'value blue';
+    el.textContent = '¥' + value.toFixed(2);
+  }
+}
+
+function renderTable() {
+  var tbody = document.getElementById('tradeBody');
+  var table = document.getElementById('tradeTable');
+  var emptyTip = document.getElementById('emptyTip');
+
+  if (records.length === 0) {
+    table.style.display = 'none';
+    emptyTip.style.display = 'block';
+    return;
+  }
+
+  table.style.display = 'table';
+  emptyTip.style.display = 'none';
+
+  var sorted = records.slice().sort(function(a, b) {
+    return b.timestamp - a.timestamp;
+  });
+
+  var eachProfits = calcEachRealizedProfit();
+  var profitMap = {};
+  var originalIndex = 0;
+  for (var m = 0; m < records.length; m++) {
+    profitMap[records[m].id] = eachProfits[m];
+  }
+
+  var html = '';
+  for (var i = 0; i < sorted.length; i++) {
+    var r = sorted[i];
+    var amount = r.price * r.shares;
+    var profit = profitMap[r.id];
+    var profitStr = '';
+    var profitClass = '';
+    if (r.type === 'sell' && profit !== null && profit !== undefined) {
+      profitStr = (profit >= 0 ? '+' : '') + '¥' + profit.toFixed(2);
+      profitClass = profit >= 0 ? 'profit-green' : 'profit-red';
+    } else {
+      profitStr = '-';
+    }
+
+    html += '<tr>' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + r.date + '</td>' +
+      '<td class="' + (r.type === 'buy' ? 'type-buy' : 'type-sell') + '">' +
+        (r.type === 'buy' ? '买入' : '卖出') + '</td>' +
+      '<td>' + r.price.toFixed(3) + '</td>' +
+      '<td>' + r.shares.toLocaleString() + '</td>' +
+      '<td>¥' + amount.toFixed(2) + '</td>' +
+      '<td>¥' + r.fee.toFixed(2) + '</td>' +
+      '<td class="' + profitClass + '">' + profitStr + '</td>' +
+      '<td><button class="btn btn-delete" onclick="deleteRecord(' + r.id + ')">删除</button></td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function deleteRecord(id) {
+  if (!confirm('确认删除这条记录？')) return;
+  records = records.filter(function(r) { return r.id !== id; });
+  saveData();
+  renderTable();
+  updateSummary();
+  showToast('记录已删除');
+}
+
+function clearAll() {
+  if (records.length === 0) { showToast('没有记录可清空', true); return; }
+  if (!confirm('确认清空全部记录？此操作不可恢复！')) return;
+  if (!confirm('再次确认：真的要清空全部交易记录吗？')) return;
+  records = [];
+  saveData();
+  renderTable();
+  updateSummary();
+  showToast('全部记录已清空');
+}
+
+function exportData() {
+  if (records.length === 0) { showToast('没有记录可导出', true); return; }
+  var dataStr = JSON.stringify(records, null, 2);
+  var blob = new Blob([dataStr], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'etf_records_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('数据已导出');
+}
+
+function showToast(msg, isError) {
+  var toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(function() {
+    toast.className = 'toast' + (isError ? ' error' : '');
+  }, 2500);
+}
+
+init();
+</script>
+</body>
+</html>
